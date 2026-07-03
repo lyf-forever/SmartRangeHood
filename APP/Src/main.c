@@ -172,7 +172,7 @@ static void Software_Init(void)
 	 * 输出限幅：0~1000
 	 */
 	//PID_Init(&s_speedPID, 14.0f, 1.65f, 0.0f, 0.5f, 0.0f, 1000.0f, PID_MODE_POSITIONAL, PID_DIRECT);
-	PID_Init(&s_speedPID, 8.0f, 1.65f, 0.0f, 1000.0f, 0.0f);
+	PID_Init(&s_speedPID, 8.5f, 1.55f, 0.0f, 1000.0f, 0.0f);
 #endif /* #if PID_IS_USE */
 
 #if WINDSPEED_IS_USE /* 如果引入风速算法 */
