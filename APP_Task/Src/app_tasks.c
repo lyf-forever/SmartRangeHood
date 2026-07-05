@@ -42,7 +42,7 @@ static TaskHandle_t xMotorControlTaskHandle = NULL;
 #if PID_DEBUG
 static TaskHandle_t xPIDDebugTaskHandle     = NULL;
 static QueueHandle_t s_pidDebugQueue        = NULL;  
-static TaskHandle_t xVofaSPTaskHandle       = NULL;  
+static TaskHandle_t xVofaPPTaskHandle       = NULL;  
 #endif 
 static TaskHandle_t xAntiBackflowTaskHandle = NULL;
 static TaskHandle_t xSpeedCalcTaskHandle    = NULL;
@@ -169,9 +169,9 @@ void StartTask(void *pvParameters)
     /* 创建PID电机转速调试任务 */
     xTaskCreate(PIDDebugTask, "PIDDebug", TASK_PID_DEBUG_STK_SIZE, NULL,
                 TASK_PID_DEBUG_PRIORITY, &xPIDDebugTaskHandle);
-    /* 创建电机转速打印任务（用于PID调参）*/
-    xTaskCreate(VofaSpeedPrintTask, "VofaSpeedPrint", TASK_VOFA_SPEEDPRINT_STK_SIZE, NULL,
-                TASK_VOFA_SPEEDPRINT_PRIO, &xVofaSPTaskHandle);            
+    /* 创建电机参数打印任务（用于PID调参）*/
+    xTaskCreate(VofaParaPrintTask, "VofaSpeedPrint", TASK_VOFA_PARAPRINT_STK_SIZE, NULL,
+                TASK_VOFA_PARAPRINT_PRIO, &xVofaPPTaskHandle);            
 #endif    
     /* 创建防回流任务 */
     xTaskCreate(AntiBackflowTask, "AntiBackFlow", TASK_ANTI_BACKFLOW_STK_SIZE, NULL,
@@ -543,7 +543,7 @@ void PIDDebugTask(void *pvParameters)
             data_bitNum,
             pRxPacket = 0;
     pidDbgState pid_dbgState = PID_DBG_STATE_WAIT_FH1;
-    uint8_t pid_rxPacket[PID_RXPacket_LEN];
+    uint8_t pid_rxPacket[LOG_RXPACKET_LEN];
     
     float parsedValue = 0.0f;
 
@@ -583,7 +583,7 @@ void PIDDebugTask(void *pvParameters)
                     }
                     else /* 存入有效目标数据 */
                     {
-                        if (pRxPacket < PID_RXPacket_LEN)
+                        if (pRxPacket < LOG_RXPACKET_LEN)
                             pid_rxPacket[pRxPacket++] = pid_rxData;
                         else
                         {
@@ -631,15 +631,16 @@ void PIDDebugTask(void *pvParameters)
 }
 
 /* PID串口接收中断处理 */
-void PID_USART_IRQHandler(void)
+void LOG_USART_IRQHandler(void)
 {
     BaseType_t xHigherPriorityTaskWoken = pdFALSE;
     uint8_t received_byte;
 
-    if(USART_GetITStatus(PID_USART_PERIPH, PID_USART_IT) != RESET)
+    if(USART_GetITStatus(LOG_USARTx, LOG_USART_IT) != RESET)
     {
+        //USART_ClearITPendingBit(LOG_USARTx, LOG_USART_IT);
         /* 1. 立刻读取 DR，清空硬件标志，防止数据被覆盖 */
-        received_byte = USART_ReceiveData(PID_USART_PERIPH);
+        received_byte = USART_ReceiveData(LOG_USARTx);
         /* 2. 将读到的字节发送到 RTOS 队列（队列自带缓冲，不需要额外信号量）*/
         xQueueSendFromISR(s_pidDebugQueue, &received_byte, &xHigherPriorityTaskWoken);
         /* 3. 如果有任务在等待队列，将任务切换使能 */
@@ -647,25 +648,27 @@ void PID_USART_IRQHandler(void)
     }
 }
 
-/* 电机转速打印任务 /50ms（PID调参时需要）*/
-void VofaSpeedPrintTask(void *pvParameters) 
+void VofaParaPrintTask(void *pvParameters)
 {
-    float ActSpeedtoPrint, TarSpeedtoPrint, pid_kp, pid_ki = 0.0f;
+    float actualRPM, targetRPM, pid_Kp, pid_Ki, pid_Kd = 0.0f;
+
     TickType_t xLastWakeTime = xTaskGetTickCount();
-    const TickType_t xPrintPeriod = pdMS_TO_TICKS(50); // 50ms打印一次，即20Hz
+    const TickType_t xParaPrintPeriod = pdMS_TO_TICKS(50);   // 50ms 发送一次（20Hz）
 
-    while(1) {
+    while (1)
+    {
+        /* ----- 步骤1：从全局变量或队列中读取数据（临界区保护） ----- */ 
         taskENTER_CRITICAL();
-        ActSpeedtoPrint = s_state.actualRPM;
-        TarSpeedtoPrint = s_state.targetRPM;
-        pid_kp = s_speedPID.Kp;
-        pid_ki = s_speedPID.Ki;
+        actualRPM = s_state.actualRPM;
+        targetRPM = s_state.targetRPM;
+        pid_Kp    = s_speedPID.Kp;
+        pid_Ki    = s_speedPID.Ki;
+        pid_Kd    = s_speedPID.Kd;
         taskEXIT_CRITICAL();
-
-        /* 按照 VOFA+ 的 JustFloat 或 FireWater 协议格式化并发送 */
-        LOG_VOFA("%.2f,%.2f,%.2f,%.2f", ActSpeedtoPrint, TarSpeedtoPrint, pid_kp, pid_ki);
-        /* 严格的 50ms 周期发送，避免串口拥堵 */
-        vTaskDelayUntil(&xLastWakeTime, xPrintPeriod);
+        /* ----- 步骤2：发送 VOFA+ FireWater 协议字符串 ----- */
+        LOG_VOFA("%.1f,%.1f,%.2f,%.2f,%.2f", actualRPM, targetRPM, pid_Kp, pid_Ki, pid_Kd);
+        /* ----- 步骤3：精确的 50ms 周期延时 ----- */
+        vTaskDelayUntil(&xLastWakeTime, xParaPrintPeriod);
     }
 }
 

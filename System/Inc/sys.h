@@ -78,7 +78,7 @@ extern IRQn_Type irqList[4];
 
 #define  SYSTEM_SUPPORT_OS	     1	 /* 定义系统文件夹是否支持OS  0:不支持os 1:支持os */
 
-#define  PID_DEBUG               0   /* PID调试 0：关闭 1：开启 */
+#define  PID_DEBUG               1   /* PID调试 0：关闭 1：开启 */
 #define  PRINT_USE               0   /* 使用printf打印 */
 
 #define  HARDWARE_UPDATE_OPEN	 0   /* 固件升级功能开关,1打开,0关闭 */

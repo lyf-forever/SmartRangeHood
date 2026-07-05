@@ -29,7 +29,7 @@ uint32_t log_get_tick(void);
 #define LOG(level, fmt, ...) \
     do { \
         if (level <= g_log_level) { \
-            char buf[256]; \
+            char buf[128]; \
             snprintf(buf, sizeof(buf), "[%lu][%c] " fmt "\r\n", \
                      (unsigned long)log_get_tick(), \
                      (level == LOG_LVL_ERROR ? 'E' : \
@@ -44,7 +44,7 @@ uint32_t log_get_tick(void);
 #define LOG_VOFA(fmt, ...) \
     do { \
         char buf[128]; \
-        snprintf(buf, sizeof(buf), fmt "\r\n", ##__VA_ARGS__); \
+        snprintf(buf, sizeof(buf), fmt "\n", ##__VA_ARGS__); \
         log_output(buf); \
     } while(0)
 

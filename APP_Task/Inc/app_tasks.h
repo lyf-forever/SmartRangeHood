@@ -84,13 +84,14 @@ typedef struct {
 #define TASK_WIND_SPEED_PRIORITY        3       /* 风速计算任务优先级 */
 #define TASK_MOTOR_PRIORITY             5       /* 电机控制任务优先级 */
 #if PID_DEBUG
-#define TASK_PID_DEBUG_PRIORITY         4       /* 电机转速PID调试任务优先级 */
-#define TASK_VOFA_SPEEDPRINT_PRIO       1       /* 电机转速打印任务优先级 */
+#define TASK_PID_DEBUG_PRIORITY         3       /* 电机转速PID调试任务优先级 */
+#define TASK_VOFA_PARAPRINT_PRIO        2       /* 电机参数打印任务优先级 */
 #endif
 #define TASK_ANTI_BACKFLOW_PRIORITY     2       /* 防回流任务优先级 */  
 #define TASK_SPEED_CALC_PRIORITY        6       /* 电机转速计算任务优先级（最高，保证及时响应定时器中断） */
 
 #if PID_DEBUG
+
 #define PID_QUEUE_LEN                   16
 #define PID_DBG_MAX_TARGET              3       /* pid调试最大参数量，这里代表Kp Ki Kd */
 #endif 
@@ -134,8 +135,8 @@ typedef enum {
 #define TASK_WIND_SPEED_STK_SIZE        64       /* 风速计算任务栈大小 */
 #define TASK_MOTOR_STK_SIZE             256      /* 电机控制任务栈大小 */
 #if PID_DEBUG
-#define TASK_PID_DEBUG_STK_SIZE         128      /* 电机转速PID调试任务栈大小 */
-#define TASK_VOFA_SPEEDPRINT_STK_SIZE   128      /* 电机转速打印任务栈大小 */
+#define TASK_PID_DEBUG_STK_SIZE         512      /* 电机转速PID调试任务栈大小 */
+#define TASK_VOFA_PARAPRINT_STK_SIZE    512      /* 电机参数打印任务栈大小 */
 #endif
 #define TASK_ANTI_BACKFLOW_STK_SIZE     64       /* 防回流任务栈大小 */
 #define TASK_SPEED_CALC_STK_SIZE        128      /* 速度计算任务栈大小 */
@@ -158,7 +159,7 @@ void WindSpeedTask(void *pvParameters);            /* 风速计算任务 */
 void MotorControlTask(void *pvParameters);         /* 电机控制任务 */
 #if PID_DEBUG
 void PIDDebugTask(void *pvParameters);             /* 电机转速PID调试任务 */
-void VofaSpeedPrintTask(void *pvParameters);       /* 电机转速打印任务 */
+void VofaParaPrintTask(void *pvParameters);        /* 电机参数打印任务 */
 #endif
 void AntiBackflowTask(void *pvParameters);         /* 防回流任务 */
 void MotorSpeedCalcTask(void *pvParameters);       /* 速度计算任务（由SpeedCacl_TIM中断(周期1ms)触发） */

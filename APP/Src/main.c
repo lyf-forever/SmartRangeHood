@@ -41,7 +41,7 @@ static void Hardware_Init(void)
 	/* USART串口配置 */
 #if UART_LOG_OUT
     /* 日志信息打印串口初始化 */
-    debug_uart_cfg();
+    log_uartOnChipCfg();
 #endif /* #if UART_LOG_OUT */
 
 #if HARDWARE_UPDATE_OPEN /* 引入固件升级 */
