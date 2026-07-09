@@ -166,12 +166,12 @@ static void Software_Init(void)
 #if PID_IS_USE 
 	/* PID控制器初始化
 	 * 参数说明：
-	 * Kp=8.5 : 比例系数
-	 * Ki=1.55: 积分系数
-	 * Kd=0.0 : 微分系数
-	 * 输出限幅：0~1000
+	 * Kp = 14.10 : 比例系数
+	 * Ki = 1.80  : 积分系数
+	 * Kd = 0.0   : 微分系数
+	 * 输出限幅：500 ~ 700
 	 */
-	PID_Init(&s_speedPID, 14.10f, 1.80f, 0.0f, 700.0f, 500.0f);   /* targetRPM:180 */
+	PID_Init(&s_speedPID, 14.10f, 1.80f, 0.0f, 700.0f, 500.0f);   /* targetRPM: 180 */
 	
 #endif /* #if PID_IS_USE */
 
