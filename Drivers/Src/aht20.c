@@ -1,7 +1,6 @@
 #include "aht20.h"
 #include "delay.h"
 #include "gpio.h"
-#include "stm32f10x_gpio.h"
 
 static uint8_t aht20_addr = 0x00;  // 保存当前设备地址
 

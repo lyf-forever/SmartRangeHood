@@ -21,7 +21,7 @@
 #define MQ2_DEFAULT_ALARM_PPM  220.0f          /* 默认报警阈值 (ppm) */
 
 /* 气体浓度阈值定义（用于防回流模式） */
-#define MQ2_THRESHOLD_NORMAL   115.0f          /* 正常阈值 */
+#define MQ2_THRESHOLD_NORMAL   130.0f          /* 正常阈值 */
 #define MQ2_THRESHOLD_HIGH     2000.0f         /* 切换后的高阈值 */
 
 /* 烟雾特性曲线拟合系数 */

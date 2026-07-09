@@ -3,7 +3,6 @@
 #if KEY_IS_USE  /* 有使用到按键 */
 
 #include "gpio.h"
-#include "stm32f10x_gpio.h"
 #include "delay.h"
  
 void         key_drv_init(const periph_gpio_t *key_io) { io_set(key_io); }

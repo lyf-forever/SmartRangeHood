@@ -17,7 +17,7 @@
 
 /* 湿度参数 */
 #define HUMIDITY_BASE       40.0f       /* 湿度基准值 (%) */
-#define HUMIDITY_MAX        75.0f       /* 湿度上限值 (%) - 烹饪时实际最高湿度 */
+#define HUMIDITY_MAX        85.0f       /* 湿度上限值 (%) - 烹饪时实际最高湿度 */
 
 /* 气体浓度参数 */
 #define GAS_BASE            90.0f       /* 气体浓度基准值 - 正常空气 */
@@ -48,9 +48,9 @@
  * Cooking Event判定条件
  * 温度 > 26 && (湿度 > 50 && 气体浓度 > 100)
  *----------------------------------------------------------*/
-#define COOKING_TEMP_THRESHOLD      28.5f       /* Cooking Event温度阈值 */
+#define COOKING_TEMP_THRESHOLD      28.0f       /* Cooking Event温度阈值 */
 #define COOKING_HUMIDITY_THRESHOLD  70.0f       /* Cooking Event湿度阈值 */
-#define COOKING_GAS_THRESHOLD       115.0f      /* Cooking Event气体浓度阈值 */
+#define COOKING_GAS_THRESHOLD       130.0f      /* Cooking Event气体浓度阈值 */
 
 /*-----------------------------------------------------------
  * 手动模式档位对应转速 (RPM)

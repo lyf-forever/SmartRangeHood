@@ -1,13 +1,4 @@
 #include "gpio.h"
-#include "stm32f10x_gpio.h"
-#include "stm32f10x_rcc.h"
-
-/***********************
-项目名：GPIO自定义驱动源文件
-作者：Lyf
-修改日期：2026/2/1
-项目已申请版权，请勿倒卖！
-***********************/
 
 /* GPIO初始化函数 */
 void io_set(const periph_gpio_t *gpio)

@@ -6,19 +6,10 @@
 #include <stdio.h>
 #include <stdbool.h>
 
-/*
- * 配置头文件
- * 作者：Lyf
- * 闲鱼号：tb43915564
- * 修改日期：2026/2/1
- * 项目已申请版权，请勿倒卖！
- */ 
-
- /* 系统tick获取 */
+/* 系统tick获取 */
 typedef uint32_t (*tickGet_func_t)(void);  /* 时间戳获取（FreeRTOS）函数类型定义 */
 extern tickGet_func_t  get_tick_ms;
 
-//#define MAX_IRQn   12
 extern IRQn_Type irqList[4];
  
 /* =====================外设模块使用开启宏===================== */
@@ -85,13 +76,11 @@ extern IRQn_Type irqList[4];
 
 #if HARDWARE_UPDATE_OPEN  /* 如果需要固件升级 */
     #define HW_UPDATE_METHOD     0   /* 固件升级的媒介 0: 有线IAP 1: 无线OTA */
-	/*此处是因为笔者固件程序就这么大，请根据需要自行修改其大小，大小需为APP程序的code段加RO段加RW段加CRC字节长度--不甘心的咸鱼*/
-	#define   buff_size 		 3692 
 
 #endif /* #if HARDWARE_UPDATE_OPEN */
+
 /**************功能开关********************************/
 
-	
 /* 位带操作,实现51类似的GPIO控制功能
    具体实现思想,参考<<CM3权威指南>>第五章(87页~92页).
    IO口操作宏定义  */

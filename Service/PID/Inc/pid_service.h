@@ -63,9 +63,9 @@ void PID_Reset(PID_Handle *pid);
  * @brief PID控制器结构体（位置式PID）
  */
 typedef struct {
-    float Kp;           /* 比例系数 */
-    float Ki;           /* 积分系数 */
-    float Kd;           /* 微分系数 */
+    volatile float Kp;           /* 比例系数 */
+    volatile float Ki;           /* 积分系数 */
+    volatile float Kd;           /* 微分系数 */
     
     float target;       /* 目标值（设定值） */
     float actual;       /* 实际值（反馈值） */

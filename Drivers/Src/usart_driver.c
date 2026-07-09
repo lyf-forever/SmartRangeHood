@@ -1,7 +1,5 @@
 #include "usart_driver.h"
 #include "usart.h"
-#include "stm32f10x_dma.h"
-#include "stm32f10x_usart.h"
 #include "stdio.h"	  
 
 #if SYSTEM_SUPPORT_OS
@@ -221,8 +219,17 @@ static void log_uart_init(void)
     USART_InitStructure.USART_Mode                = USART_Mode_Tx | USART_Mode_Rx;
     USART_Init(LOG_USARTx, &USART_InitStructure);
 
-    /* 使能 log_uart */
-    USART_Cmd(LOG_USARTx, ENABLE);
+	USART_ITConfig(LOG_USARTx, LOG_USART_IT, ENABLE);
+
+	NVIC_InitTypeDef log_nvic;
+	log_nvic.NVIC_IRQChannel = LOG_USART_IRQ;
+	log_nvic.NVIC_IRQChannelPreemptionPriority = 0x05;
+	log_nvic.NVIC_IRQChannelSubPriority = 0x00;
+	log_nvic.NVIC_IRQChannelCmd = ENABLE;
+	NVIC_Init(&log_nvic);
+
+	USART_ClearFlag(LOG_USARTx, USART_FLAG_RXNE);
+    USART_Cmd(LOG_USARTx, ENABLE);  /* 使能 LOG_USARTx */
 }
 
 static void log_uart_dma_tx_init(void)
@@ -249,8 +256,6 @@ static void log_uart_dma_tx_init(void)
 
     DMA_Init(LOG_UART_TX_DMA_CH, &DMA_InitStructure);
 	USART_DMACmd(LOG_USARTx, USART_DMAReq_Tx, ENABLE);
-    /* 清空标志 */
-    DMA_ClearFlag(LOG_TX_DMA_TC_FLAG);
 }
 #endif /* #if 0 */
 

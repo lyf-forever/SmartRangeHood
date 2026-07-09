@@ -15,9 +15,9 @@
  * 按键功能：
  * - 按键1(PE4)：短按切换模式
  * - 按键2(PE3)：短按切换档位，长按开关风机
- *作者: Lyf
- *修改日期：2026/5/7
- *项目已申请版权，请勿倒卖！
+ * 作者: Lyf
+ * 修改日期：2026/5/7
+ * 项目已申请版权，请勿倒卖！
  */
 #include "FreeRTOS.h"
 #include "task.h"
@@ -171,8 +171,8 @@ static void Software_Init(void)
 	 * Kd=0.0 : 微分系数
 	 * 输出限幅：0~1000
 	 */
-	//PID_Init(&s_speedPID, 14.0f, 1.65f, 0.0f, 0.5f, 0.0f, 1000.0f, PID_MODE_POSITIONAL, PID_DIRECT);
-	PID_Init(&s_speedPID, 8.5f, 1.55f, 0.0f, 1000.0f, 0.0f);
+	PID_Init(&s_speedPID, 14.10f, 1.80f, 0.0f, 700.0f, 500.0f);   /* targetRPM:180 */
+	
 #endif /* #if PID_IS_USE */
 
 #if WINDSPEED_IS_USE /* 如果引入风速算法 */

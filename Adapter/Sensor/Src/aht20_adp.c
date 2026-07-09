@@ -1,7 +1,6 @@
 #include "aht20_adp.h"
 #include "aht20.h"
 #include "delay.h"
-#include "debug_log.h"
 
 #if USE_SENSOR_AHT20
 

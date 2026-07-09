@@ -1,6 +1,5 @@
 #include "mq2.h"
 #include "debug_log.h"
-#include "stm32f10x_adc.h"
 #include "delay.h"
 #include <math.h>
 #include <stdio.h>

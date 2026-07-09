@@ -3,7 +3,6 @@
  * 基于FreeRTOS的油烟机控制系统
  * 作者：Lyf
  * 修改日期：2026/3/21
- * 项目已申请版权，请勿倒卖！
  */
 #include "app_tasks.h"
 
@@ -24,44 +23,6 @@
 #include "usart_driver.h"
 #include "crc32_service.h"
 #include "bootloader.h"
-
-/*-----------------------------------------------------------
- * 全局变量定义
- *----------------------------------------------------------*/
-RangehoodSystemState s_state;                      /* 系统状态 */
-SemaphoreHandle_t s_dataConcernMutex   = NULL;     /* 数据互斥信号量 */
-SemaphoreHandle_t s_speedCalcSemaphore = NULL;     /* 速度计算二值信号量 */
-
-/* 任务句柄 */
-static TaskHandle_t xStartTaskHandle        = NULL;
-static TaskHandle_t xLCDDispUITaskHandle    = NULL;
-static TaskHandle_t xKeyScanTaskHandle      = NULL;
-static TaskHandle_t xSensorTaskHandle       = NULL;
-static TaskHandle_t xWindSpeedTaskHandle    = NULL;
-static TaskHandle_t xMotorControlTaskHandle = NULL;
-#if PID_DEBUG
-static TaskHandle_t xPIDDebugTaskHandle     = NULL;
-static QueueHandle_t s_pidDebugQueue        = NULL;  
-static TaskHandle_t xVofaPPTaskHandle       = NULL;  
-#endif 
-static TaskHandle_t xAntiBackflowTaskHandle = NULL;
-static TaskHandle_t xSpeedCalcTaskHandle    = NULL;
-#if HARDWARE_UPDATE_OPEN
-static TaskHandle_t xIAPTaskHandle = NULL;
-#endif
-
-/* 队列句柄 */
-#if HARDWARE_UPDATE_OPEN
-static QueueHandle_t frame_queue = NULL;
-
-extern uint8_t iap_recbuff[IAP_REC_LEN];   /* 接收缓冲区 */
-volatile uint32_t rx_rd_idx = 0;    /* 读索引：应用程序已处理到的位置，用于缓冲区溢出判断 */
-volatile uint32_t last_wr_idx = 0;  /* 上一次 IDLE 结束时的 DMA 写位置 */
-
-#endif
-
-/* PID控制器 */
-PID_TypeDef s_speedPID;
 
 /* 自动模式状态机状态 */
 typedef enum {
@@ -92,6 +53,65 @@ static const char* AutoStateNames[] = {
     "Cooking ",
     "DelayOff"
 };
+
+/*-----------------------------------------------------------
+ * 全局变量定义
+ *----------------------------------------------------------*/
+RangehoodSystemState s_state;                      /* 系统状态 */
+SemaphoreHandle_t s_dataConcernMutex   = NULL;     /* 数据互斥信号量 */
+SemaphoreHandle_t s_speedCalcSemaphore = NULL;     /* 速度计算二值信号量 */
+
+/* 任务句柄 */
+static TaskHandle_t xStartTaskHandle        = NULL;
+static TaskHandle_t xLCDDispUITaskHandle    = NULL;
+static TaskHandle_t xKeyScanTaskHandle      = NULL;
+static TaskHandle_t xSensorTaskHandle       = NULL;
+static TaskHandle_t xWindSpeedTaskHandle    = NULL;
+static TaskHandle_t xMotorControlTaskHandle = NULL;
+#if PID_DEBUG
+static TaskHandle_t xPIDDebugTaskHandle     = NULL;
+static QueueHandle_t s_pidDebugQueue        = NULL;  
+static TaskHandle_t xVofaPPTaskHandle       = NULL;  
+#endif 
+static TaskHandle_t xAntiBackflowTaskHandle = NULL;
+static TaskHandle_t xSpeedCalcTaskHandle    = NULL;
+#if HARDWARE_UPDATE_OPEN
+static TaskHandle_t xIAPTaskHandle = NULL;
+#endif
+
+#if HARDWARE_UPDATE_OPEN
+static QueueHandle_t frame_queue = NULL;   /* 队列句柄 */
+
+extern uint8_t iap_recbuff[IAP_REC_LEN];   /* 接收缓冲区 */
+volatile uint32_t rx_rd_idx = 0;    /* 读索引：应用程序已处理到的位置，用于缓冲区溢出判断 */
+volatile uint32_t last_wr_idx = 0;  /* 上一次 IDLE 结束时的 DMA 写位置 */
+
+#endif
+
+#if PID_IS_USE
+/* PID控制器 */
+PID_TypeDef s_speedPID;
+
+typedef struct {
+    const MotorSpeedLevel speedLevel;   // 转速挡位
+    uc16                  targetRPM;    // 该组参数对应的目标转速
+    /* PID参数 */
+    const float           kp;        
+    const float           ki; 
+    const float           kd;
+    /* 输出上限&下限 */
+    const float           op_max; 
+    const float           op_min; 
+} PID_GainEntry;
+
+/* PID参数表（按目标转速升序排列）*/
+static const PID_GainEntry s_pidGainTable[] = {
+    { MOTOR_SPEED_LOW,  SPEED_LOW_RPM,   14.10f, 1.80f, 0.00f, 700.0f, 500.0f },   // 180 RPM 最优参数
+    { MOTOR_SPEED_HIGH, SPEED_HIGH_RPM,  20.20f, 2.39f, 0.00f, 1000.0f, 830.0f },   // 220 RPM 最优参数
+};
+#define PID_GAIN_TABLE_SIZE  (sizeof(s_pidGainTable) / sizeof(s_pidGainTable[0]))
+
+#endif 
 
 /*-----------------------------------------------------------
  * 系统初始化
@@ -169,9 +189,10 @@ void StartTask(void *pvParameters)
     /* 创建PID电机转速调试任务 */
     xTaskCreate(PIDDebugTask, "PIDDebug", TASK_PID_DEBUG_STK_SIZE, NULL,
                 TASK_PID_DEBUG_PRIORITY, &xPIDDebugTaskHandle);
+                
     /* 创建电机参数打印任务（用于PID调参）*/
     xTaskCreate(VofaParaPrintTask, "VofaSpeedPrint", TASK_VOFA_PARAPRINT_STK_SIZE, NULL,
-                TASK_VOFA_PARAPRINT_PRIO, &xVofaPPTaskHandle);            
+                TASK_VOFA_PARAPRINT_PRIO, &xVofaPPTaskHandle);                      
 #endif    
     /* 创建防回流任务 */
     xTaskCreate(AntiBackflowTask, "AntiBackFlow", TASK_ANTI_BACKFLOW_STK_SIZE, NULL,
@@ -220,7 +241,7 @@ void key_eventCallback(const KeyInfo *info, void *user_data)
     //key_log_event(info);
 
     /* 利用 user_data 传递上下文（如界面句柄、状态机指针） */
-    // KeyAppCtx *ctx = (KeyAppCtx *)user_data;
+    //KeyAppCtx *ctx = (KeyAppCtx *)user_data;
 
     switch(info->id) {
         case KEY_DRV_0:  /* userKey0 */
@@ -348,7 +369,7 @@ void WindSpeedTask(void *pvParameters)
 }
 
 /*-----------------------------------------------------------
- * 电机控制任务 - 周期50ms
+ * 电机控制任务 - 周期25ms
  *----------------------------------------------------------*/
 /* 电机运行的要素:必须有三个函数调用(启动、设置转速、设置方向) */
 void MotorControlTask(void *pvParameters)
@@ -357,7 +378,7 @@ void MotorControlTask(void *pvParameters)
    
     while (1)
     {
-        u16 pwmCompare = 0;
+        uint16_t pwmCompare = 0;
 
         /* 获取实际转速 */
         if (xSemaphoreTake(s_dataConcernMutex, portMAX_DELAY) == pdTRUE)
@@ -381,7 +402,6 @@ void MotorControlTask(void *pvParameters)
                 /* 手动模式：PID控制电机转速 */
                 if (!s_state.motorRunning)
                 {
-                    //LOG_I("m");
                     motor_start();
                     s_state.motorRunning = 1;
                 }
@@ -411,7 +431,7 @@ void MotorControlTask(void *pvParameters)
                         /* 使用最小转速代表自动模式开启 */                       
                         motor_setPWMDuty(PWM_MIN*10);
 
-                        s_state.autoModeStartupCounter += 50;
+                        s_state.autoModeStartupCounter += 25;
                        
                         if (s_state.cookingEventActive)
                         {
@@ -429,15 +449,15 @@ void MotorControlTask(void *pvParameters)
                         break;
                        
                     case AUTO_STATE_COOKING:
-                        /* Cooking Event激活：根据传感器自动调节 */
-                        {
-                            /* 根据风速算法设置速度，MAXCCR为最大占空比对应的CCR值 */
-                            pwmCompare = WindSpeed_GetPWMCompare(MAXCCR);
-                            motor_setPWMDuty(pwmCompare);
-                        }
-                       
-                        s_state.cookingEventCounter += 50;
-                       
+                    /* Cooking Event激活：根据传感器自动调节 */
+                    {
+                        /* 根据风速算法设置速度，MAXCCR为最大占空比对应的CCR值 */
+                        pwmCompare = WindSpeed_GetPWMCompare(MAXCCR);
+                        motor_setPWMDuty(pwmCompare);
+                    }
+                        
+                        s_state.cookingEventCounter += 25;
+                        
                         if (!s_state.cookingEventActive)
                         {
                             /* Cooking Event结束 */
@@ -454,14 +474,14 @@ void MotorControlTask(void *pvParameters)
                         break;
                        
                     case AUTO_STATE_DELAY_OFF:
-                        /* 延时关闭阶段 */
-                        {
-                            /* 依据风速输出转速，MAXCCR为最大占空比对应的CCR值 */
-                            pwmCompare = WindSpeed_GetPWMCompare(MAXCCR);
-                            motor_setPWMDuty(pwmCompare);
-                        }
+                    /* 延时关闭阶段 */
+                    {
+                        /* 依据风速输出转速，MAXCCR为最大占空比对应的CCR值 */
+                        pwmCompare = WindSpeed_GetPWMCompare(MAXCCR);
+                        motor_setPWMDuty(pwmCompare);
+                    }
                        
-                        s_state.cookingEventCounter += 50;
+                        s_state.cookingEventCounter += 25;
                        
                         if (s_state.cookingEventActive)
                         {
@@ -481,7 +501,7 @@ void MotorControlTask(void *pvParameters)
                 break;
                
             case RANGEHOOD_MODE_ANTI_BACKFLOW:
-                /* 防回流模式：由防回流任务控制 */
+            /* 防回流模式：由防回流任务控制 */
                 if (s_state.antiBackflowActive && s_state.motorRunning)
                 {
                     /* 使用用户设定的档位转速 */
@@ -492,12 +512,12 @@ void MotorControlTask(void *pvParameters)
                 }
                 break;
         }
-       
-        delay_ms(50);   /* 50ms控制周期 */
+        delay_ms(25);   /* 25ms控制周期 */
     }
 }
 
 #if PID_DEBUG
+/* 接收状态变换枚举 */
 typedef enum {
     PID_DBG_STATE_WAIT_FH1 = 0x00,   /* 等待PID传递的命令帧头1 - '#' */
     PID_DBG_STATE_WAIT_FH2,          /* 等待PID传递的命令帧头2 - 'P' */
@@ -548,10 +568,11 @@ void PIDDebugTask(void *pvParameters)
     float parsedValue = 0.0f;
 
     while (1)
-    {
+    {   
         /* 无限阻塞等待一个字节（只有当队列有数据时才会返回） */
         if (xQueueReceive(s_pidDebugQueue, &pid_rxData, portMAX_DELAY) == pdPASS)
         {
+            
             /* ----- 状态机处理一个字节 ----- */
             switch (pid_dbgState)
             {
@@ -635,10 +656,9 @@ void LOG_USART_IRQHandler(void)
 {
     BaseType_t xHigherPriorityTaskWoken = pdFALSE;
     uint8_t received_byte;
-
+    
     if(USART_GetITStatus(LOG_USARTx, LOG_USART_IT) != RESET)
     {
-        //USART_ClearITPendingBit(LOG_USARTx, LOG_USART_IT);
         /* 1. 立刻读取 DR，清空硬件标志，防止数据被覆盖 */
         received_byte = USART_ReceiveData(LOG_USARTx);
         /* 2. 将读到的字节发送到 RTOS 队列（队列自带缓冲，不需要额外信号量）*/
@@ -648,9 +668,10 @@ void LOG_USART_IRQHandler(void)
     }
 }
 
+/* 电机转速打印任务 - 50ms */
 void VofaParaPrintTask(void *pvParameters)
 {
-    float actualRPM, targetRPM, pid_Kp, pid_Ki, pid_Kd = 0.0f;
+    float actualRPM, targetRPM, pid_Kp, pid_Ki, pid_Kd, pid_op = 0.0f;
 
     TickType_t xLastWakeTime = xTaskGetTickCount();
     const TickType_t xParaPrintPeriod = pdMS_TO_TICKS(50);   // 50ms 发送一次（20Hz）
@@ -660,13 +681,14 @@ void VofaParaPrintTask(void *pvParameters)
         /* ----- 步骤1：从全局变量或队列中读取数据（临界区保护） ----- */ 
         taskENTER_CRITICAL();
         actualRPM = s_state.actualRPM;
+        pid_op = PID_Calculate(&s_speedPID, actualRPM);
         targetRPM = s_state.targetRPM;
         pid_Kp    = s_speedPID.Kp;
         pid_Ki    = s_speedPID.Ki;
         pid_Kd    = s_speedPID.Kd;
         taskEXIT_CRITICAL();
         /* ----- 步骤2：发送 VOFA+ FireWater 协议字符串 ----- */
-        LOG_VOFA("%.1f,%.1f,%.2f,%.2f,%.2f", actualRPM, targetRPM, pid_Kp, pid_Ki, pid_Kd);
+        LOG_VOFA("%.1f,%.1f,%.1f,%.2f,%.2f,%.2f", pid_op, actualRPM, targetRPM, pid_Kp, pid_Ki, pid_Kd);
         /* ----- 步骤3：精确的 50ms 周期延时 ----- */
         vTaskDelayUntil(&xLastWakeTime, xParaPrintPeriod);
     }
@@ -772,7 +794,6 @@ void AntiBackflowTask(void *pvParameters)
 }
 
 #if HARDWARE_UPDATE_OPEN /* 如果引入固件升级 */
-
 #if !HW_UPDATE_METHOD /* 有线IAP */
 /*-----------------------------------------------------------
  * IAP 任务 
@@ -960,6 +981,13 @@ void IAP_USART_IRQHandler(void)
 
 #endif /* #if HARDWARE_UPDATE_OPEN */
 
+/* 切换到自动模式时需要改变PID参数值 */
+static void pidPara_change_modeAutoAndAntiBack(void) 
+{
+    s_speedPID.output_max = 800.0f;
+    s_speedPID.output_min = 0.0f;
+}
+
 /*-----------------------------------------------------------
  * 切换工作模式
  *----------------------------------------------------------*/
@@ -979,9 +1007,11 @@ void System_SwitchMode(void)
                 break;
             case RANGEHOOD_MODE_AUTO:
                 s_state.currentMode = RANGEHOOD_MODE_ANTI_BACKFLOW;
+                pidPara_change_modeAutoAndAntiBack();
                 break;
             case RANGEHOOD_MODE_ANTI_BACKFLOW:
                 s_state.currentMode = RANGEHOOD_MODE_STANDBY;
+                pidPara_change_modeAutoAndAntiBack();
                 break;
         }
         
@@ -993,6 +1023,24 @@ void System_SwitchMode(void)
         }
         
         xSemaphoreGive(s_dataConcernMutex);
+    }
+}
+
+/* 切换电机目标转速(手动模式)时需要改变PID参数值 */
+static void pidPara_change_modeManual(MotorSpeedLevel speedLevel) 
+{
+    for(uint8_t i = 0; i < PID_GAIN_TABLE_SIZE; i++) {
+        if(s_pidGainTable[i].speedLevel == speedLevel) {
+            taskENTER_CRITICAL();
+            /* 改变PID参数值 */
+            s_speedPID.Kp = s_pidGainTable[i].kp;
+            s_speedPID.Ki = s_pidGainTable[i].ki;
+            s_speedPID.Kd = s_pidGainTable[i].kd;
+            /* 改变积分上限&下限值 */
+            s_speedPID.output_max = s_pidGainTable[i].op_max;
+            s_speedPID.output_min = s_pidGainTable[i].op_min;
+            taskEXIT_CRITICAL();
+        } 
     }
 }
 
@@ -1008,11 +1056,13 @@ void System_SwitchSpeedLevel(void)
         {
             case MOTOR_SPEED_LOW:
                 s_state.speedLevel = MOTOR_SPEED_HIGH;
+                
                 break;
             case MOTOR_SPEED_HIGH:
                 s_state.speedLevel = MOTOR_SPEED_LOW;
                 break;
         }
+        pidPara_change_modeManual(s_state.speedLevel);
         xSemaphoreGive(s_dataConcernMutex);
     }
 }
@@ -1046,7 +1096,7 @@ void System_ToggleMotor(void)
 }
 
 /*-----------------------------------------------------------
- * 电机转速计算任务(每隔500ms电机转速有效值更新) - 由SpeedCacl_TIM中断触发
+ * 电机转速计算任务(每隔250ms电机转速有效值更新) - 由SpeedCacl_TIM中断触发
  *----------------------------------------------------------*/
 void MotorSpeedCalcTask(void *pvParameters)
 {

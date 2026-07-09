@@ -18,5 +18,5 @@ void mq2_adapter_register(void);
 
 #endif /* #if USE_SENSOR_MQ2 */
 
-#endif // !__MQ2_ADP_H_
+#endif /* #ifndef __MQ2_ADP_H_ */
 

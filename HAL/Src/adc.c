@@ -1,7 +1,6 @@
 #include "adc.h"
 #include "debug_log.h"
 #include <string.h>
-#include "stm32f10x_adc.h"
 
 /**
  * @brief  使能使用的ADC时钟与DMA时钟

@@ -1,12 +1,3 @@
-/*
- * 应用层任务头文件
- * 基于FreeRTOS的油烟机控制系统
- *
- * 作者：不甘心的咸鱼--闲鱼/不搭(414192836)--小红书
- * 闲鱼号：tb43915564
- * 修改日期：2026/2/1
- * 项目已申请版权，请勿倒卖！
- */
 #ifndef __APP_TASKS_H
 #define __APP_TASKS_H
 
@@ -74,9 +65,9 @@ typedef struct {
 #define COOKING_EVENT_DELAY_OFF     10000   /* Cooking Event结束后延时关闭：10秒 */
 
 
-// /*-----------------------------------------------------------
-//  * 任务优先级定义
-//  *----------------------------------------------------------*/
+/*-----------------------------------------------------------
+ * 任务优先级定义
+ *----------------------------------------------------------*/
 #define TASK_START_PRIORITY             1       /* 开始任务优先级 */
 #define TASK_LCD_PRIORITY               1       /* LCD任务优先级 */
 #define TASK_KEY_PRIORITY               4       /* 按键扫描任务优先级 */
@@ -125,9 +116,9 @@ typedef enum {
 
 #endif
 
-// /*-----------------------------------------------------------
-//  * 任务栈大小定义
-//  *----------------------------------------------------------*/
+/*-----------------------------------------------------------
+ * 任务栈大小定义
+ *----------------------------------------------------------*/
 #define TASK_START_STK_SIZE             64       /* 开始任务栈大小 */
 #define TASK_LCD_STK_SIZE               256      /* LCD显示任务栈大小 */
 #define TASK_KEY_STK_SIZE               64       /* 按键扫描任务栈大小 */
@@ -135,8 +126,8 @@ typedef enum {
 #define TASK_WIND_SPEED_STK_SIZE        64       /* 风速计算任务栈大小 */
 #define TASK_MOTOR_STK_SIZE             256      /* 电机控制任务栈大小 */
 #if PID_DEBUG
-#define TASK_PID_DEBUG_STK_SIZE         512      /* 电机转速PID调试任务栈大小 */
-#define TASK_VOFA_PARAPRINT_STK_SIZE    512      /* 电机参数打印任务栈大小 */
+#define TASK_PID_DEBUG_STK_SIZE         128      /* 电机转速PID调试任务栈大小 */
+#define TASK_VOFA_PARAPRINT_STK_SIZE    256      /* 电机参数打印任务栈大小 */
 #endif
 #define TASK_ANTI_BACKFLOW_STK_SIZE     64       /* 防回流任务栈大小 */
 #define TASK_SPEED_CALC_STK_SIZE        128      /* 速度计算任务栈大小 */
@@ -165,13 +156,13 @@ void AntiBackflowTask(void *pvParameters);         /* 防回流任务 */
 void MotorSpeedCalcTask(void *pvParameters);       /* 速度计算任务（由SpeedCacl_TIM中断(周期1ms)触发） */
 void iap_hardwareUpdate_task(void *pvParameters);  /* IAP任务 */
 
-// /* 模式切换函数 */
+/* 模式切换函数 */
 void System_SwitchMode(void);                  /* 切换工作模式 */
 void System_SwitchSpeedLevel(void);            /* 切换档位 */
 void System_ToggleMotor(void);                 /* 切换电机开关 */
 
-// /* 获取系统状态 */
-// RangehoodSystemState* System_GetState(void);
+/* 获取系统状态 */
+RangehoodSystemState* System_GetState(void);
 
 #endif /* #if SYSTEM_SUPPORT_OS */
 
